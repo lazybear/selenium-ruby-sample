@@ -1,0 +1,5 @@
+# -- google example vars
+google_home_page_url: "http://google.com"
+google_home_page_verify_text: "Advanced Search"
+google_advanced_search_link: "link=Advanced Search"
+google_advanced_search_page_verify_text: "Find web pages that have"
