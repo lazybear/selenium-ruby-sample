@@ -24,7 +24,8 @@ Running tests:
 
 3. run everything using Ant
 
-     "ant ci"    : this will start selenium server, execute all available tests and stop selenium server
+     "ant ci -Dtest.base.url=http://valid_yammer_url -Dqa.reports=/path/to/output"  :
+                        this will start selenium server, execute all available tests, prepare reports  and stop selenium server
 
 
 Write new tests:

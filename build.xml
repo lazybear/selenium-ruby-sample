@@ -23,10 +23,14 @@
 
    <!-- REPORTS -->
    <!-- you can pass '-Dqa.reports=/some/path' to ant and it will be used for qa.reports -->
-   <condition property="qa.report" value="" else="${qa.reports}">
+   <condition property="runtime.report" value="" else="${qa.reports}">
       <not>
          <isset property="qa.reports"/>
       </not>
+   </condition>
+   <!-- check if qa.report is set to any value or is empty -->
+   <condition property="session.reports" value="" else="REPORTS_DIR=${runtime.report}">
+      <equals arg1="${runtime.report}" arg2=""/>
    </condition>
 
    <!-- KEYWORDS -->
@@ -37,7 +41,7 @@
       </not>
    </condition>
 
-   <!-- check if qa.keyword is set to any value or is empty -->
+   <!-- check if runtime.keyword is set to any value or is empty -->
    <condition property="session.keywords" value="" else="KEYWORDS='${runtime.keyword}'">
       <equals arg1="${runtime.keyword}" arg2=""/>
    </condition>
@@ -58,7 +62,7 @@
       </not>
    </condition>
 
-   <echo message="qa.report        : ${qa.report}"/>
+   <echo message="qa.reports       : ${runtime.report}"/>
    <echo message="session.keywords : ${runtime.keyword}"/>
    <echo message="qa.base.url      : ${qa.base.url}"/>
 
@@ -83,13 +87,13 @@
    <macrodef name="run-qa">
         <sequential>
 	    <run-rc option="start"/>
-	    <echo message="-- executing: ${rake.path} ${session.keywords} REPORTS_DIR=${qa.report}"/>
+	    <echo message="-- executing: ${rake.path} ${session.keywords} ${session.reports}"/>
 	    <exec executable="${rake.path}" resultproperty="test.run">
 	       <env key="qa.base.url" value="${qa.base.url}"/>
-	       <arg line="${session.keywords} REPORTS_DIR=${qa.report}"/>
+	       <arg line="${session.keywords} ${session.reports}"/>
             </exec>
 	    <echo message="-- qa.base.url set to: ${qa.base.url}"/>
-	    <echo message="-- reports set to    : ${qa.report}"/>
+	    <echo message="-- reports set to    : ${runtime.report}"/>
 	    <echo message="-- keyword set to    : ${runtime.keyword}"/>
             <echo message="-- executing QA tests ..."/>
 	    <run-rc option="stop"/>

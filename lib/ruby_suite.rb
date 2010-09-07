@@ -16,6 +16,7 @@ require "rubygems"
 require "selenium/client"
 require "lib/macros"
 require "lib/base_test"
+require "lib/user"
 require 'tlsmail'
 
 class RubySuite
@@ -162,6 +163,30 @@ class RubySuite
    def check_page_and_verify_text(text)
       check_page(@selenium.get_body_text())
       verify_text(text)
+   end
+
+   # -- click on something
+   def click(element)
+      # -- 'element' could be a javascript, then we need to call 'run_script' instead of 'click'
+      if /jQuery/.match(element)
+         p("-- running script: " + element)
+         @selenium.run_script(element)
+      else
+         p("-- clicking on element: " + element)
+         @selenium.click(element)
+      end
+   end
+
+   # -- type something into something
+   def type(element, message)
+      p("-- typing message ['#{message}'] into element ['#{element}']")
+      @selenium.type(element, message)
+   end
+
+   # -- select something
+   def select(element, option)
+      p("-- selecting option ['#{option}'] from select element ['#{element}']")
+      @selenium.select(element, option)
    end
 
    def p(s)
