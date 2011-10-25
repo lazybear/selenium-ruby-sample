@@ -97,35 +97,41 @@
 	    <echo message="-- keyword set to    : ${runtime.keyword}"/>
             <echo message="-- executing QA tests ..."/>
 	    <run-rc option="stop"/>
-	    <echo message="-- test.run result: ${test.run}"/>
-	    <fail message="some tests failed !">
-	       <condition>
-	          <not>
+        </sequential>
+   </macrodef>
+
+   <macrodef name="finally">
+        <sequential>
+            <echo message="-- test.run result: ${test.run}"/>
+            <fail message="some tests failed !">
+               <condition>
+                  <not>
                      <equals arg1="${test.run}" arg2="0"/>
-	          </not>
-	       </condition>
+                  </not>
+               </condition>
             </fail>
         </sequential>
-    </macrodef>
+   </macrodef>
 
-    <target name="start-rc">
+   <target name="start-rc">
 	<run-rc option="start"/>
-    </target>
+   </target>
 
-    <target name="stop-rc">
+   <target name="stop-rc">
 	<run-rc option="stop"/>
-    </target>
+   </target>
 
-    <target name="ci">
+   <target name="ci">
   	<check-connection />
         <run-qa/>
-    </target>
+        <finally/>
+   </target>
 
-    <target name="help">
+   <target name="help">
         <echo message="-- available targets: ci, start-rc, stop-rc, help (this message)..."/>
 	<echo message="   you can pass '-Dqa.keywords=somekeyword' to ant and corresponding tests will execute"/>
 	<echo message="   you can pass '-Dqa.reports=/path/to/reports' to ant and reports will be prepared in that dir"/>
 	<echo message="   you can pass '-Dtest.base.url=http://server_under_test_url' to ant and it will be used as a server test url"/>
-    </target>
+   </target>
   
 </project>

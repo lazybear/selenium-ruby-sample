@@ -1,15 +1,15 @@
 #!/usr/bin/env ruby
-#    Copyright (C) 2009 Alexandre Berman, Lazybear Consulting (sashka@lazybear.net)
+# Copyright (C) 2009 Alexandre Berman, Lazybear Consulting (sashka@lazybear.net)
 #
-#    This program is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
-#    the Free Software Foundation, either version 3 of the License, or
-#    (at your option) any later version.
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
 #
-#    This program is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
 
 require 'yaml'
 require "rubygems"
@@ -18,14 +18,15 @@ require "lib/macros"
 require "lib/base_test"
 require "lib/user"
 require 'tlsmail'
+require 'fileutils'
 
 class RubySuite
    attr_accessor :selenium, :test_name, :CONFIG, :host, :port, :base_url, :browser, :debug_mode, :suite_root, :common
 
    def initialize(options)
-      @suite_root           = File.expand_path "#{File.dirname(__FILE__)}/.."
+      @suite_root = File.expand_path "#{File.dirname(__FILE__)}/.."
       # -- loading global properties from yaml
-      @CONFIG               = read_yaml_file(@suite_root+"/env.yaml")
+      @CONFIG = read_yaml_file(@suite_root+"/env.yaml")
       # -- loading user-defined properties from yaml
       if File.exist?(@suite_root+"/user.env.yaml")
          YAML::load(File.read(@suite_root+"/user.env.yaml")).each_pair { |key, value|
@@ -33,12 +34,12 @@ class RubySuite
          }
       end
       # -- loading common id hash
-      @common               = YAML::load(File.read(@suite_root+"/lib/common.yaml"))
-      @host                 = @CONFIG['selenium_host']
-      @port                 = @CONFIG['selenium_port']
-      @browser              = @CONFIG['browser']
-      @debug_mode           = @CONFIG['debug_mode']
-      @base_url             = @CONFIG['base_url']
+      @common = YAML::load(File.read(@suite_root+"/lib/common.yaml"))
+      @host = @CONFIG['selenium_host']
+      @port = @CONFIG['selenium_port']
+      @browser = @CONFIG['browser']
+      @debug_mode = @CONFIG['debug_mode']
+      @base_url = @CONFIG['base_url']
       # -- setting env for a given test
       set_test_name(options[:test_name])
       # -- do init
@@ -67,10 +68,10 @@ class RubySuite
               break if Net::HTTPForbidden === response
               break if Net::HTTPNotFound === response
               break if Net::HTTPSuccess === response
-              # When we try to connect to a down server with an Apache proxy, 
+              # When we try to connect to a down server with an Apache proxy,
               # we'll get Net::HTTPBadGateway and get here
           rescue Errno::ECONNREFUSED
-              # When we try to connect to a down server without an Apache proxy, 
+              # When we try to connect to a down server without an Apache proxy,
               # such as a dev instance, we'll get here
           end
           sleep one_wait;
@@ -90,7 +91,7 @@ class RubySuite
       end
       begin
          p("-- SUCCESS : Selenium RC is alive !\n")
-         p("-- ENV     : " + RUBY_PLATFORM)
+         p("-- ENV : " + RUBY_PLATFORM)
          p("-- BROWSER : " + @browser)
          @selenium = Selenium::Client::Driver.new \
            :host => @host,
@@ -99,6 +100,7 @@ class RubySuite
            :url => @base_url,
            :timeout_in_second => 10000
          @selenium.start_new_browser_session
+         @selenium.window_maximize if @CONFIG["fullscreen_mode"]
       rescue => e
          do_fail("ERROR: " + e.inspect)
          clean_exit(false)
@@ -116,7 +118,12 @@ class RubySuite
       p(s)
       raise("error")
    end
- 
+
+   # -- generate random number
+   def random_n
+      return rand(50000).to_s.rjust(5,'0')
+   end
+
    # -- check the page for any abnormalities
    def check_page(page)
       # -- if error is found, it will dump first 2000 characters of the page to the screen
@@ -146,16 +153,36 @@ class RubySuite
    # -- verify text
    def verify_text(text)
       p("-- Verifying page text: [ #{text} ]")
+      sleep_in_slow_mode 8
       if !@selenium.is_text_present(text)
-	 p("-- text not found, page text is currently: " + @selenium.get_body_text() )   
+         p("-- text not found, page text is currently: " + @selenium.get_body_text() )
          raise "-- [ERROR] not able to verify text: #{text}"
       end
       p("-- OK: page text verified [ #{text} ] !")
    end
 
+   # -- clear all necessary cookies
+   def clear_cookies_disabled
+      p("-- clearing browser_token cookie...")
+      @selenium.delete_cookie("browser_token", "recurse=true")
+   end
+
+   # -- clear cookies in a creative way
+   def clear_cookies
+      p("-- clearing browser_token cookie...")
+      js =  "var cookie_date = new Date ( ); cookie_date.setTime ( cookie_date.getTime() - 1 );"
+      js += " document.cookie = 'browser_token =; expires=' + cookie_date.toGMTString();"
+      p("-- javascript: " + js + "\n\n")
+      @selenium.run_script(js)
+   end
+
+   def sleep_in_slow_mode time=1
+     sleep time if @CONFIG["slow_mode"]
+   end
+
    # -- wait for page to load and verify text
    def wait_for_page_and_verify_text(text)
-      @selenium.wait_for_page_to_load(20000)
+      @selenium.wait_for_page_to_load(120000)
       check_page_and_verify_text(text)
    end
 
@@ -178,15 +205,27 @@ class RubySuite
    end
 
    # -- type something into something
-   def type(element, message)
-      p("-- typing message ['#{message}'] into element ['#{element}']")
-      @selenium.type(element, message)
+   def type(element, text)
+      p("-- typing text ['#{text}'] into element ['#{element}']")
+      @selenium.type(element, text)
    end
 
    # -- select something
    def select(element, option)
       p("-- selecting option ['#{option}'] from select element ['#{element}']")
       @selenium.select(element, option)
+   end
+
+   # -- check something
+   def check(element)
+      p("-- checking element ['#{element}']")
+      @selenium.check(element)
+   end
+
+   # -- uncheck something
+   def uncheck(element)
+      p("-- unchecking element ['#{element}']")
+      @selenium.uncheck(element)
    end
 
    def p(s)
@@ -198,11 +237,11 @@ class RubySuite
       p("-- evaluating the proper base url to use based on config settings: " + relative_url)
       if (ENV['qa.base.url'] != nil and ENV['qa.base.url'] != "")
          p("-- using ENV - URL: " + ENV['qa.base.url'])
-	 proper_base = (ENV['qa.base.url'] + relative_url)
-	 else
-            p("-- using env.yaml file URL: " + @base_url)
-	    proper_base = (@base_url + relative_url)
-	 end
+         proper_base = (ENV['qa.base.url'] + relative_url)
+      else
+         p("-- using env.yaml file URL: " + @base_url)
+         proper_base = (@base_url + relative_url)
+      end
    end
 
    # -- setup proper file uri needed for any operations involving selenium.attach_file
@@ -212,51 +251,108 @@ class RubySuite
         when /cygwin/, /mswin32/, /i386-mingw32/
            new_path = file.gsub(/C:/,'')
            p("-- new_path (windows only) = #{new_path}")
-	   return "file://" + new_path
+           return "file://" + new_path
         else
-	   return "file://" + file
+           return "file://" + file
       end
    end
 
    # -- extract page element and compare its value to a given one
    def extract_text_and_compare(location_id, compare_value)
-      p("-- checking location_id [ " + location_id + " ] for the following value: " + compare_value)	
+      p("-- checking location_id [ " + location_id + " ] for the following value: " + compare_value)
       p("-- current value in a given location_id: " + @selenium.get_text(location_id))
       if (@selenium.get_text(location_id) != compare_value)
          raise "-- ERROR: " + compare_value + "not found in [ " + location_id + " ]"
       else
-  	 p("-- OK: [ " + compare_value + " ] found!")
+         p("-- OK: [ " + compare_value + " ] found!")
       end
    end
 
    # -- extract text field element and compare its value to a given one
    def extract_value_and_compare(location_id, compare_value)
-      p("-- checking location_id [ " + location_id + " ] for the following value: " + compare_value)	
+      p("-- checking location_id [ " + location_id + " ] for the following value: " + compare_value)
       p("-- current value in a given location_id: " + @selenium.get_text(location_id))
       if (@selenium.get_value(location_id) != compare_value)
          raise "-- ERROR: " + compare_value + "not found in [ " + location_id + " ]"
       else
-  	 p("-- OK: [ " + compare_value + " ] found!")
+         p("-- OK: [ " + compare_value + " ] found!")
       end
    end
 
+   def wait_for_element_present locator, timeout = 120
+      @selenium.wait_for_condition("selenium.isElementPresent(\"#{locator}\")", timeout)
+   end
+
+   def wait_for_element_not_present locator, timeout = 120
+      @selenium.wait_for_condition("!selenium.isElementPresent(\"#{locator}\")", timeout)
+   end
+
+   def wait_for_element_visible locator, timeout = 120
+      p "-- waiting for visible #{locator}"
+      wait_for_element_present locator, timeout
+      @selenium.wait_for_condition("selenium.isVisible(\"#{locator}\")", timeout)
+   end
+
+   def wait_for_element_not_visible locator, timeout = 120
+      wait_for_element_present locator, timeout
+      @selenium.wait_for_condition("!selenium.isVisible(\"#{locator}\")", timeout)
+   end
+
+   def wait_for_text_present locator, timeout = 120
+      @selenium.wait_for_condition("selenium.isTextPresent(\"#{locator}\")", timeout)
+   end
+
+   def get_body_text
+      return @selenium.get_body_text()
+   end
+
+   def rm_dir(dir)
+      if File.directory?(dir)
+         p("-- removing dir: " + dir)
+         FileUtils.rm_r(dir)
+      end
+   end
+
+   def mkdir(dir)
+      if !File.directory?(dir)
+         p("-- creating dir: " + dir)
+         FileUtils.mkdir_p(dir)
+      end
+   end
+
+   def setup_dir(dir)
+      rm_dir(dir)
+      mkdir(dir)
+   end
+
    # -- check pop mail
-   def pop_mail
+   def pop_mail(login, password)
       all_mails = []
-      Net::POP.enable_ssl(OpenSSL::SSL::VERIFY_NONE)
-      Net::POP.start(@common['pop_host'], @common['pop_port'], @common['pop_user_name'], @common['pop_user_password']) do |pop|
-         if pop.mails.empty?
-            p '-- (pop) No mail.'
-         else
-            i = 0
-            pop.each_mail do |m|
-               #exit if i > 20
-               p "-- (pop) >>> new message ..."
-               all_mails.push(m.pop)
-               m.delete
-               p "-- (pop) >>> end ..."
-               i=i+1
+      ok = true
+      begin
+         Net::POP.enable_ssl(OpenSSL::SSL::VERIFY_NONE)
+         Net::POP.start(@common['pop_host'], @common['pop_port'], login, password) do |pop|
+            if pop.mails.empty?
+               p '-- (pop) No mail.'
+            else
+               i = 0
+               pop.each_mail do |m|
+                  #exit if i > 20
+                  p "-- (pop) >>> new message ..."
+                  all_mails.push(m.pop)
+                  m.delete #can be deleted if each_mail will be replaced with delete_all
+                  p "-- (pop) >>> end ..."
+                  i=i+1
+               end
             end
+         end
+      rescue Net::POPAuthenticationError => err
+         p err
+         ok = !ok
+         unless ok
+            retry
+         else
+            raise
          end
       end
       return all_mails

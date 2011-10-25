@@ -33,7 +33,7 @@ task :default => [:run]
 # -- the following vars control the behavior of running tests
 @test_data = {
    'output_on'                => false,
-   'test_retry'               => false,
+   'test_retry'               => true,
    'test_exit_status_passed'  => "PASSED",
    'test_exit_status_failed'  => "FAILED",
    'test_exit_status_skipped' => "SKIPPED",
@@ -58,8 +58,9 @@ task :help do
     puts "   # @executeArgs"
     puts "   # @keywords acceptance"
     puts "   # @description some interesting test\n\n"
-    puts "   Note:\n\n   Your test must end with 'test.rb' - otherwise Rake won't be able to find it, eg:\n\n"
-    puts "   tests/some_new_test.rb\n\n\n"
+    puts "   Note 1:\n\n   Your test must end with 'test.rb' - otherwise Rake won't be able to find it, eg:\n"
+    puts "   tests/some_new_test.rb\n\n"
+    puts "   Note 2:\n\n   Your test must define at least one keyword.\n\n"
 end
 
 # -- prepare reports_dir
@@ -90,6 +91,10 @@ def filter_by_keywords
             }
          }
       }
+
+      # -- in case only a negative keyword was given, let's fill up tmp_tests array here (ie: if it is empty now):
+      tmp_tests = @tests.uniq if tmp_tests.length < 1 and /!/.match(ENV['KEYWORDS'])
+
       # -- check for a negative keyword
       if /!/.match(ENV['KEYWORDS'])
          ENV['KEYWORDS'].gsub(/,/, ' ').split.each { |keyword|
@@ -143,7 +148,7 @@ end
 desc "-- print tests..."
 task :print_human do
    Rake::Task["find_all"].invoke
-   each { |t| 
+   each { |t|
       begin
          puts t.to_s
       rescue => e
@@ -162,7 +167,7 @@ task :run do
    Rake::Task["find_all"].invoke
    tStart = Time.now
    # -- let's run each test now
-   each { |t| 
+   each { |t|
       begin
          t.validate
          # -- do we run test more than once if it failed first time ?
@@ -334,6 +339,7 @@ class Test
 
     def run
        @cmd = @cmd + " " + @execute_args unless @execute_args == ""
+       ENV["REPORT_FILE"] = File.join(@test_data['reports_dir'], @execute_class)
        tStart = Time.now
        print("-- #{tStart.strftime('[%H:%M:%S]')} running: [#{@cmd}] ")
        begin
@@ -346,12 +352,12 @@ class Test
              end
           }
        rescue Timeout::Error => e
-          @output = "[ TERMINATED WITH TIMEOUT (#{@timeout.to_s}) ]"
+          @output << "\n\n[ TERMINATED WITH TIMEOUT (#{@timeout.to_s}) ]"
           @exit_status = @test_data['test_exit_status_failed']
        ensure
           puts @exit_status
           puts @output if @test_data['output_on']
-       end   
+       end
        tFinish = Time.now
        @execution_time = tFinish - tStart
     end

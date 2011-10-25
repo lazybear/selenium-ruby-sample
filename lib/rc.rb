@@ -22,7 +22,7 @@ require 'shell'
 require 'yaml'
 
 if (ARGV.empty? || ARGV.length > 1)
-       puts "-- usage: " + $0 + " host::port::selenium_server_jar_file_path::option"
+       puts "-- usage: " + $0 + " start|stop"
        exit 1
 end
 
@@ -55,8 +55,8 @@ class RC
       def start
         command = "java -jar \"#{@jar_file}\""
         command << " -port #{@port}"
-#       command << " -multiWindow"
-        command << " -singlewindow"
+        command << " -multiWindow"
+        #command << " -singlewindow"
         command << " -timeout #{@timeout_in_seconds}"
         command << " > #{@log_file}"
         Thread.new { `#{command}` }

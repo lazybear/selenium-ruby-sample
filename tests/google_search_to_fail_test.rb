@@ -3,10 +3,10 @@ require 'lib/base_test'
 
 # @author Alexandre Berman
 # @executeArgs
-# @keywords acceptance
-# @description test to demo google search
+# @keywords tofail
+# @description test to demonstrate failure
 
-class GoogleSearchTest < BaseTest
+class GoogleSearchTofailTest < BaseTest
 
    # -- initialize
     def initialize
@@ -15,8 +15,9 @@ class GoogleSearchTest < BaseTest
 
    # -- test begins
     def run_main
+       @suite.common['result'] = "xxx"
        GoogleSearchMacro.new(suite).run_test
     end
 end
 
-GoogleSearchTest.new.run_test
+GoogleSearchTofailTest.new.run_test
