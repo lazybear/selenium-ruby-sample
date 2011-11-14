@@ -306,6 +306,7 @@ class RubySuite
       return @selenium.get_body_text()
    end
 
+   # -- operations on DIR(s)
    def rm_dir(dir)
       if File.directory?(dir)
          p("-- removing dir: " + dir)
@@ -323,6 +324,59 @@ class RubySuite
    def setup_dir(dir)
       rm_dir(dir)
       mkdir(dir)
+   end
+
+   # -- connect to db
+   def mysql_open
+      begin
+         #@dbh = Mysql.real_connect("10.7.144.128", "charlie", "m1ll3r", "adz")
+         @dbh = Mysql.real_connect(@CONFIG['mysql_host'], @CONFIG['mysql_user'], @CONFIG['mysql_password'], @CONFIG['mysql_db'])
+         # -- debug: get server version string and display it
+         #puts "Server version: " + @dbh.get_server_info
+      rescue Mysql::Error => e
+         p("-- MySql Error code: #{e.errno}")
+         p("-- MySql Error message: #{e.error}")
+         p("-- MySql Error SQLSTATE: #{e.sqlstate}") if e.respond_to?("sqlstate")
+         mysql_close
+         clean_exit(false)
+      end
+   end
+
+   # -- db close
+   def mysql_close
+      begin
+         # -- disconnect from server
+         @dbh.close if @dbh
+      rescue Mysql::Error => e
+         p("-- MySql Error code: #{e.errno}")
+         p("-- MySql Error message: #{e.error}")
+         p("-- MySql Error SQLSTATE: #{e.sqlstate}") if e.respond_to?("sqlstate")
+         clean_exit(false)
+      end
+   end
+
+   # -- mysql queries
+   def mysql_q(q)
+      if @dbh
+         begin
+            #[12698887, 10588603, 12698885, 12695201, 12061713].each  { |b|
+            #   puts("-- checking id: " + b.to_s)
+            #res = @dbh.query("select status_from_user from banner where banner_id = #{b.to_s}")
+            res = @dbh.query(q)
+            res.each { |row| yield row }
+            #   printf "%s, %s\n", row[0], row[1]
+               #puts "Number of rows returned: #{res.num_rows}\n\n"
+               #res.free
+            #}
+         rescue Mysql::Error => e
+            p("-- Error code: #{e.errno}")
+            p("-- Error message: #{e.error}")
+            p("-- Error SQLSTATE: #{e.sqlstate}") if e.respond_to?("sqlstate")
+            mysql_close
+            clean_exit(false)
+         end
+      else
+      end
    end
 
    # -- check pop mail
